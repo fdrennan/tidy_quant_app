@@ -8,43 +8,86 @@
 #
 
 library(shiny)
+library(shinydashboard)
+library(tidyquant)
+library(lubridate)
+library(stringr)
 
-# Define UI for application that draws a histogram
-ui <- fluidPage(
-   
-   # Application title
-   titlePanel("Old Faithful Geyser Data"),
-   
-   # Sidebar with a slider input for number of bins 
-   sidebarLayout(
-      sidebarPanel(
-         sliderInput("bins",
-                     "Number of bins:",
-                     min = 1,
-                     max = 50,
-                     value = 30)
-      ),
-      
-      # Show a plot of the generated distribution
-      mainPanel(
-         plotOutput("distPlot")
+## Only run this example in interactive R sessions
+
+# Basic dashboard page template
+library(shiny)
+shinyApp(
+  
+  ui = dashboardPage(
+    dashboardHeader(title = 'tidyquant'),
+    dashboardSidebar(collapsed = FALSE,
+                     selectInput(
+                       "data_type", 
+                       "Select Data",
+                       c("Stock Prices", 
+                         "Stock Prices Japan",
+                         "Financials",
+                         "Key Stats",
+                         "Key Ratios",
+                         "Dividends",
+                         "Splits",
+                         "Economic Data",
+                         "Exchange Rates",
+                         "Metal Prices",
+                         "Quandl",
+                         "Quandl Datatable")
+                     )
+
+    ),
+    dashboardBody(
+      tabsetPanel(
+        tabPanel(
+          "Gather Data",
+          conditionalPanel(
+            condition = "input.data_type == 'Stock Prices'",
+            helpText("Input tickers separated by a comma."),
+            textInput("tickers", "Type Tickers", value = "AAPL, AMZN"),
+            # In ui.R:
+            downloadLink('downloadData', 'Download'),
+            dataTableOutput('dataset')
+          )
+        )
       )
-   )
-)
-
-# Define server logic required to draw a histogram
-server <- function(input, output) {
-   
-   output$distPlot <- renderPlot({
-      # generate bins based on input$bins from ui.R
-      x    <- faithful[, 2] 
-      bins <- seq(min(x), max(x), length.out = input$bins + 1)
+    ),
+    title = "tidyquant"
+    
+  ),
+  
+  server = function(input, output) { 
+    
+    stock_data = reactive({
+      query = input$tickers %>% 
+        str_split(.,",") %>% 
+        unlist %>% 
+        str_trim %>% 
+        as.vector
       
-      # draw the histogram with the specified number of bins
-      hist(x, breaks = bins, col = 'darkgray', border = 'white')
-   })
-}
-
-# Run the application 
-shinyApp(ui = ui, server = server)
+      tq_get(
+        query, 
+        get = 'stock.prices'
+      )
+    })
+    
+    output$dataset = renderDataTable({
+      stock_data() 
+    })
+  
+    # In server.R:
+    output$downloadData <- downloadHandler(
+      filename = function() {
+        paste('data-', Sys.Date(), '.csv', sep='')
+      },
+      content = function(con) {
+        write.csv(stock_data(), con)
+      }
+    )
+  }
+  
+)
 

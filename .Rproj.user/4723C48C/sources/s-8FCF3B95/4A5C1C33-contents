@@ -1,0 +1,36 @@
+## Only run examples in interactive R sessions
+library(tidyverse)
+
+if (interactive()) {
+  
+  ui <- fluidPage(
+    uiOutput("moreControls"),
+    tableOutput('mtcars_Data')
+  )
+  
+  server <- function(input, output) {
+
+    
+    mtcarsData <- reactive({
+      mtcars %>% 
+        filter(
+          wt > 1
+        )
+    })
+    
+    output$moreControls <- renderUI({
+      tagList(
+        selectizeInput('columns', 
+                       'columns', 
+                       colnames(mtcarsData()),
+                       selected = 'wt', multiple = TRUE)
+      )
+      
+    })
+    output$mtcars_Data <- renderTable({
+      mtcarsData() %>% 
+        select(input$columns)
+    })
+  }
+  shinyApp(ui, server)
+}

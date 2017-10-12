@@ -2,18 +2,18 @@
     "collab_server" : "",
     "contents" : "",
     "created" : 1507834670517.000,
-    "dirty" : true,
+    "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
     "hash" : "0",
     "id" : "D893B684",
-    "lastKnownWriteTime" : 1507838217,
-    "last_content_update" : 1507838240280,
+    "lastKnownWriteTime" : 1507841675,
+    "last_content_update" : 1507841675940,
     "path" : "~/Documents/programming/rProjects/tidy_quant_app/app.R",
     "project_path" : "app.R",
     "properties" : {
-        "cursorPosition" : "92,0",
-        "scrollLine" : "31"
+        "cursorPosition" : "49,23",
+        "scrollLine" : "49"
     },
     "relative_order" : 1,
     "source_on_save" : false,

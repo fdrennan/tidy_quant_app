@@ -93,7 +93,9 @@ shinyApp(
     
         tq_get(
           query, 
-          get = 'stock.prices'
+          get   = 'stock.prices',
+          from  = min(input$daterange_tickers),
+          to    = max(input$daterange_tickers)
         ) 
     
       

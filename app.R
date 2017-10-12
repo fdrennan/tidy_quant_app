@@ -91,12 +91,23 @@ shinyApp(
         str_trim %>% 
         as.vector
     
+      tq_get_output <- 
         tq_get(
           query, 
           get   = 'stock.prices',
           from  = min(input$daterange_tickers),
           to    = max(input$daterange_tickers)
-        ) 
+        ) %>% 
+          mutate(
+            date = ymd(date)
+          )
+        
+        if(length(query) == 1) {
+          tq_get_output$symbol = query
+        }
+      
+      tq_get_output 
+        
     
       
     })

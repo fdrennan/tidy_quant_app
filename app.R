@@ -14,6 +14,7 @@ library(tidyquant)
 library(lubridate)
 library(stringr)
 library(plotly)
+library(formattable)
 
 ## Only run this example in interactive R sessions
 
@@ -24,6 +25,7 @@ shinyApp(
   ui = dashboardPage(    
     dashboardHeader(title = 'tidyquant'),
     dashboardSidebar(collapsed = FALSE,
+                     actionButton("run", "Run Me"),
                      selectInput(
                        "data_type", 
                        "Select Data",
@@ -55,6 +57,18 @@ shinyApp(
       fluidRow(
         tabsetPanel(
           tabPanel(
+            "Plots",
+            conditionalPanel(
+              # DATASET VISUALIZATION
+              condition = "input.data_type == 'Stock Prices'",
+              uiOutput("ggplot_stock_controls"),
+              # In ui.R:
+              plotlyOutput('stock_plot_ts'),
+              uiOutput("ggplot_scatter_controls"),
+              plotlyOutput('stock_plot_scatter')
+            )
+          ),
+          tabPanel(
             "Dataset",
             conditionalPanel(
               # DATASET VISUALIZATION
@@ -62,15 +76,6 @@ shinyApp(
               # In ui.R:
               downloadLink('downloadData', 'Download'),
               dataTableOutput('dataset')
-            )
-          ),
-          tabPanel(
-            "Plots",
-            conditionalPanel(
-              # DATASET VISUALIZATION
-              condition = "input.data_type == 'Stock Prices'",
-              # In ui.R:
-              plotlyOutput('stock_plot')
             )
           )
         )
@@ -85,40 +90,59 @@ shinyApp(
     
 ############## STOCK DATA
     stock_data = reactive({
-      query = input$tickers %>% 
-        str_split(.,",") %>% 
-        unlist %>% 
-        str_trim %>% 
-        as.vector
-    
-      tq_get_output <- 
-        tq_get(
-          query, 
-          get   = 'stock.prices',
-          from  = min(input$daterange_tickers),
-          to    = max(input$daterange_tickers)
-        ) %>% 
+      input$run
+      
+      isolate({
+        query = input$tickers %>% 
+          str_split(.,",") %>% 
+          unlist %>% 
+          str_trim %>% 
+          as.vector
+        
+        tq_get_output <- 
+          tq_get(
+            query, 
+            get   = 'stock.prices',
+            from  = min(input$daterange_tickers),
+            to    = max(input$daterange_tickers)
+          ) %>% 
           mutate(
-            date = ymd(date)
+            date = ymd(date),
+            change = (close-lag(close))/lag(close)
           )
+        
+        
         
         if(length(query) == 1) {
           tq_get_output$symbol = query
         }
-      
-      tq_get_output 
         
+        tq_get_output 
+      })
+
+    })
     
+    output$ggplot_stock_controls <- renderUI({
+
+      tickers_for_graph <-
+      stock_data()$symbol %>% 
+        unique
+
+      tagList(
+        selectizeInput('chosen_tickers_for_plot',
+                       'Choose two tickers from the tickers you submitted.',
+                       tickers_for_graph,
+                       tickers_for_graph,
+                       multiple = TRUE)
+      )
+
+    })
+    
+    output$stock_plot_ts = renderPlotly({
       
-    })
-    
-    output$dataset = renderDataTable({
-      stock_data() 
-    })
-    
-    output$stock_plot = renderPlotly({
       stock_plot_data <- 
       stock_data() %>% 
+        filter(symbol %in% input$chosen_tickers_for_plot) %>% 
         ggplot() +
         aes(x = date, y = adjusted, colour = symbol) +
         geom_line() +
@@ -128,9 +152,84 @@ shinyApp(
       
         ggplotly(stock_plot_data)
     })
+    
+    output$ggplot_scatter_controls <- renderUI({
+      
+      tickers_for_graph <-
+        stock_data()$symbol %>% 
+        unique
+      
+      tagList(
+        selectizeInput('chosen_tickers_for_scatter',
+                       'Remove/Add Stocks',
+                       tickers_for_graph,
+                       tickers_for_graph[c(1,2)],
+                       multiple = TRUE)
+      )
+      
+    })
+    
+    output$stock_plot_scatter = renderPlotly({
+      
+      data_plot = stock_data() 
 
-  
-    # In server.R:
+      x <- 
+        data_plot %>% 
+        filter(
+          symbol == input$chosen_tickers_for_scatter[1]
+        )
+      y <- 
+        data_plot %>% 
+        filter(
+          symbol == input$chosen_tickers_for_scatter[2]
+        )
+      
+      x = x %>% 
+        filter(
+          date %in% y$date
+        )
+      
+      y = y %>% 
+        filter(
+          date %in% x$date
+        )
+      
+
+
+      stock_plot_data <- 
+        ggplot() +
+        aes(x = x$change,
+            y = y$change) +
+        geom_point() +
+        geom_smooth(method = lm) +
+        xlab("Date") +
+        ylab("Adjusted Closing Price") +
+        guides(colour=guide_legend(title="Tickers")) +
+        xlim(-.1, .1) +
+        ylim(-.1, .1) +
+        xlab(input$chosen_tickers_for_scatter[1]) +
+        ylab(input$chosen_tickers_for_scatter[2]) +
+        ggtitle(
+          paste0("Correlation = ",
+                 cor(x$change,
+                     y$change,
+                     use = "complete.obs") %>% 
+                   percent)
+          )
+        
+      
+      ggplotly(stock_plot_data, height = 800)
+    })
+    
+
+    output$dataset = renderDataTable({
+      stock_data() 
+    })
+    
+    ############## STOCK DATA ENDING
+    
+    
+    ## DOWNLOAD DATA LOCATION
     output$downloadData <- downloadHandler(
       filename = function() {
         paste('data-', Sys.Date(), '.csv', sep='')
@@ -139,9 +238,6 @@ shinyApp(
         write.csv(stock_data(), con)
       }
     )
-    
-    
-    ############## STOCK DATA ENDING
   }
   
 )

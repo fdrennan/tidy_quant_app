@@ -29,7 +29,7 @@ if (interactive()) {
     })
     output$mtcars_Data <- renderTable({
       mtcarsData() %>% 
-        select(input$columns)
+        filter(input$columns)
     })
   }
   shinyApp(ui, server)
